@@ -83,3 +83,9 @@ Even though it is a lot of end-user work, the only workable solution to collect 
 
 # Data Flow Diagram
 [![ECE o11y Data Flow](https://github.com/elastic/ece_o11y/blob/master/ECE%20o11y%20Data%20Flow.png "ECE o11y Data Flow")](https://github.com/elastic/ece_o11y/blob/master/ECE%20o11y%20Data%20Flow.png "ECE o11y Data Flow")
+
+# Disclaimer
+This project is not officially supported by Elastic Co.
+
+While nothing here should be distructive, if you break your ECE instance it is on you to fix it. It is not covered under your Elastic Support contract.
+
