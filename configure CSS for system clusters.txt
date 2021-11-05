@@ -1,0 +1,54 @@
+If you aren't able to assign CCS through the ECE UI you can use the API to setup CCS
+
+1. Get the clusters info
+https://<YOUR_ECE_URL>:12443/api/v1/clusters/elasticsearch
+
+# look for the observability cluster section => "cluster_name": "observability"
+
+#             "cluster_name": "admin-console-elasticsearch",
+#            "cluster_name": "logging-and-metrics",
+# Then "cluster_id": "390e61ac262f482896770fe6b393377d"
+
+
+You will need the destination observability cluster and the source logging_and_metrics and admin cluster_id s
+
+2. temporarily disable the system owned flag in the ECE -> Deployments -> EDIT
+-> look for way at the bottom -> Too advanced to drag sliders? Go to Advanced Edit.
+
+Under Elasticsearch cluster data (for admin and logging clusters)
+  "system_owned": true,
+
+Change to 
+  "system_owned": false,
+
+Hit Save
+
+
+3. Confiture CSS
+-> you need to configure Auth username/password
+-> headers Content-Type : application/json
+https://<your_ece_url>:12443/api/v1/clusters/elasticsearch/390e61ac262f482896770fe6b393377d/ccs/settings
+{
+    "remote_clusters": {
+        "landm" : {
+        	"cluster_id": "e474a1ed598e4b439523be0d29ed8940",
+        	"skip_unavailable": true
+        },
+        "admin" : {
+        	"cluster_id": "1c196d5cca5c493d861a9b19e0ad6ac3",
+        	"skip_unavailable": true
+        }
+
+    }
+}
+
+
+response is {}
+
+4. change system owned flag back
+  "system_owned": false, 
+change to 
+  "system_owned": true,
+
+
+

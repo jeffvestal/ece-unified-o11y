@@ -1,0 +1,205 @@
+
+# 7x Clusters only (local cluster)
+
+PUT _transform/cluster_health_7x
+{
+  "source": {
+    "index": [
+      ".monitoring-es-*"
+    ],
+    "query": {
+      "bool": {
+        "filter": [
+          {
+            "match_phrase": {
+              "type": "cluster_stats"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "pivot": {
+    "group_by": {
+      "cluster_settings.cluster.metadata.display_name": {
+        "terms": {
+          "field": "cluster_settings.cluster.metadata.display_name"
+        }
+      }
+    },
+    "aggregations": {
+      "license.expiry_date_in_millis.max": {
+        "max": {
+          "field": "license.expiry_date_in_millis"
+        }
+      },
+      "latest_health": {
+        "scripted_metric": {
+          "init_script": "state.timestamp_latest = 0L; state.last_doc = ''",
+          "map_script": """
+        def current_date = doc['timestamp'].getValue().toInstant().toEpochMilli();
+        if (current_date > state.timestamp_latest)
+        {state.timestamp_latest = current_date;
+        state.last_doc = params['_source']['cluster_state']['status'];}
+      """,
+          "combine_script": "return state",
+          "reduce_script": """
+        def last_doc = '';
+        def timestamp_latest = 0L;
+        for (s in states) {if (s.timestamp_latest > (timestamp_latest))
+        {timestamp_latest = s.timestamp_latest; last_doc = s.last_doc;}}
+        return last_doc
+      """
+        }
+      }
+    }
+  },
+  "description": "Latest Cluster Health 7x",
+  "dest": {
+    "index": "monitoring-cluster-health-transform-7x"
+  },
+  "frequency": "60s",
+  "sync": {
+    "time": {
+      "field": "timestamp",
+      "delay": "60s"
+    }
+  }
+}
+
+# 6x Clusters Only (Remote bridge cluster)
+PUT _transform/cluster_health_6x
+{
+  "source": {
+    "index": [
+      "68_bridge:.monitoring-es-*"
+    ],
+    "query": {
+      "bool": {
+        "filter": [
+          {
+            "match_phrase": {
+              "type": "cluster_stats"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "pivot": {
+    "group_by": {
+      "cluster_settings.cluster.metadata.display_name": {
+        "terms": {
+          "field": "cluster_settings.cluster.metadata.display_name"
+        }
+      }
+    },
+    "aggregations": {
+      "license.expiry_date_in_millis.max": {
+        "max": {
+          "field": "license.expiry_date_in_millis"
+        }
+      },
+      "latest_health": {
+        "scripted_metric": {
+          "init_script": "state.timestamp_latest = 0L; state.last_doc = ''",
+          "map_script": """
+        def current_date = doc['timestamp'].getValue().toInstant().toEpochMilli();
+        if (current_date > state.timestamp_latest)
+        {state.timestamp_latest = current_date;
+        state.last_doc = params['_source']['cluster_state']['status'];}
+      """,
+          "combine_script": "return state",
+          "reduce_script": """
+        def last_doc = '';
+        def timestamp_latest = 0L;
+        for (s in states) {if (s.timestamp_latest > (timestamp_latest))
+        {timestamp_latest = s.timestamp_latest; last_doc = s.last_doc;}}
+        return last_doc
+      """
+        }
+      }
+    }
+  },
+  "description": "Latest Cluster Health 6x",
+  "dest": {
+    "index": "monitoring-cluster-health-transform-6x"
+  },
+  "frequency": "60s",
+  "sync": {
+    "time": {
+      "field": "timestamp",
+      "delay": "60s"
+    }
+  }
+}
+
+# Combined 6x and 7x clusters combined. 
+# THIS DOES NOT PROPERLY WORK - SOmething with the scripted_metric only returns the local cluster
+# Use Separate transforms above and create kibana index pattern of monitoring-cluster-health-transform-*
+PUT _transform/cluster_health
+{
+  "source": {
+    "index": [
+      "68_bridge:.monitoring-es-*",
+      ".monitoring-es-*"
+    ],
+    "query": {
+      "bool": {
+        "filter": [
+          {
+            "match_phrase": {
+              "type": "cluster_stats"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "pivot": {
+    "group_by": {
+      "cluster_settings.cluster.metadata.display_name": {
+        "terms": {
+          "field": "cluster_settings.cluster.metadata.display_name"
+        }
+      }
+    },
+    "aggregations": {
+      "license.expiry_date_in_millis.max": {
+        "max": {
+          "field": "license.expiry_date_in_millis"
+        }
+      },
+      "latest_health": {
+        "scripted_metric": {
+          "init_script": "state.timestamp_latest = 0L; state.last_doc = ''",
+          "map_script": """ 
+        def current_date = doc['timestamp'].getValue().toInstant().toEpochMilli();
+        if (current_date > state.timestamp_latest)
+        {state.timestamp_latest = current_date;
+        state.last_doc = params['_source']['cluster_state']['status'];}
+      """,
+          "combine_script": "return state",
+          "reduce_script": """ 
+        def last_doc = '';
+        def timestamp_latest = 0L;
+        for (s in states) {if (s.timestamp_latest > (timestamp_latest))
+        {timestamp_latest = s.timestamp_latest; last_doc = s.last_doc;}}
+        return last_doc
+      """
+        }
+      }
+    }
+  },
+  "description": "Latest Cluster Health",
+  "dest": {
+    "index": "monitoring-cluster-health-transform"
+  },
+  "frequency": "60s",
+  "sync": {
+    "time": {
+      "field": "timestamp",
+      "delay": "60s"
+    }
+  }
+}

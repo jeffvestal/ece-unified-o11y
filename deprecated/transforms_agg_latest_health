@@ -1,0 +1,19 @@
+    "latest_health": {
+"scripted_metric": {
+      "init_script": "state.timestamp_latest = 0L; state.last_doc = ''", 
+      "map_script": """ 
+        def current_date = doc['timestamp'].getValue().toInstant().toEpochMilli();
+        if (current_date > state.timestamp_latest)
+        {state.timestamp_latest = current_date;
+        state.last_doc = params['_source']['cluster_state']['status'];}
+      """,
+      "combine_script": "return state", 
+      "reduce_script": """ 
+        def last_doc = '';
+        def timestamp_latest = 0L;
+        for (s in states) {if (s.timestamp_latest > (timestamp_latest))
+        {timestamp_latest = s.timestamp_latest; last_doc = s.last_doc;}}
+        return last_doc
+      """    }
+  }
+

@@ -1,0 +1,43 @@
+PUT /_template/.monitoring-es-custom
+{
+  "order": 10,
+  "index_patterns": [
+    ".monitoring-es-*"
+  ],
+  "mappings": {
+    "doc": {
+      "properties": {
+        "cluster_settings": {
+          "properties": {
+            "cluster": {
+              "properties": {
+                "metadata": {
+                  "properties": {
+                    "display_name": {
+                      "type": "keyword"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "cluster_stats": {
+          "properties": {
+            "status": {
+              "type": "keyword"
+            }
+          }
+        },
+        "license": {
+          "properties": {
+            "expiry_date_in_millis": {
+              "type": "date"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

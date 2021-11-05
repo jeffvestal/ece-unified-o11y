@@ -1,0 +1,124 @@
+PUT /_transform/node-to-cluster-mapping
+{
+  "source": {
+    "index": [
+      "68_bridge:.monitoring-es-*",
+      ".monitoring-es-*"
+    ],
+    "query": {
+      "bool": {
+        "filter": [
+          {
+            "bool": {
+              "should": [
+                {
+                  "match_phrase": {
+                    "type": "node_stats"
+                  }
+                },
+                {
+                  "match_phrase": {
+                    "type": "cluster_stats"
+                  }
+                }
+              ],
+              "minimum_should_match": 1
+            }
+          },
+          {
+            "range": {
+              "timestamp": {
+                "gte": "now-2h"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "pivot": {
+    "group_by": {
+      "cluster_uuid": {
+        "terms": {
+          "field": "cluster_uuid"
+        }
+      }
+    },
+    "aggregations": {
+            "license.expiry_date_in_millis.max": {
+        "max": {
+          "field": "license.expiry_date_in_millis"
+        }
+      },
+      "cluster_name": {
+        "scripted_metric": {
+          "init_script": "state.spans = []",
+          "map_script": """if (params['_source']['cluster_settings'] != null){
+          for (value in doc['cluster_settings.cluster.metadata.display_name']) {
+            Map span = ['channel':value]; state.spans.add(span)
+          }}""",
+          "combine_script": "return state.spans",
+          "reduce_script": """def ret = [];
+              for (s in states) { 
+                for (span in s) { 
+                  ret.add(span); }} 
+                  List x = ret.stream().map(d -> {d.channel}).distinct().collect(Collectors.toList());
+                  return x;"""
+        }
+      },
+      "nodes": {
+        "scripted_metric": {
+          "init_script": "state.spans = []",
+          "map_script": """if (params['_source']['node_stats'] != null){
+          for (value in doc['source_node.uuid']) {
+            Map span = ['channel':value]; 
+            state.spans.add(span)
+          }}""",
+          "combine_script": "return state.spans",
+          "reduce_script": """def ret = [];
+              for (s in states) { 
+                for (span in s) { 
+                  ret.add(span); }} 
+                  List x = ret.stream().map(d -> {d.channel}).distinct().collect(Collectors.toList());
+                  return x;"""
+        }
+      },
+      "cluster_health": {
+        "scripted_metric": {
+          "init_script": "state.timestamp_latest = 0L; state.last_doc = ''",
+          "map_script": """
+        def current_date = doc['timestamp'].getValue().toInstant().toEpochMilli();
+        if (current_date > state.timestamp_latest && params['_source']['cluster_state'] != null)
+        {
+        state.timestamp_latest = current_date;
+        state.last_doc = params['_source']['cluster_state']['status'];
+        }
+      """,
+          "combine_script": "return state",
+          "reduce_script": """
+        def last_doc = '';
+        def timestamp_latest = 0L;
+        for (s in states) {
+          if (s.timestamp_latest > (timestamp_latest) && s.last_doc != "" )
+          {
+            timestamp_latest = s.timestamp_latest; last_doc = s.last_doc;
+          }
+        }
+        return last_doc
+      """
+        }
+      }
+    }
+  },
+  "description": "Node to Cluster Mapping",
+  "dest": {
+    "index": "node-to-cluster-mapping"
+  },
+  "frequency": "60s",
+  "sync": {
+    "time": {
+      "field": "timestamp",
+      "delay": "60s"
+    }
+  }
+}
